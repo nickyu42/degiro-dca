@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backtesting Strategy Performance</title>
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+</head>
+
+<body>
+
+    <div id="controls">
+        <label for="ticker">Select Ticker:</label>
+        <select id="ticker">
+        </select>
+
+        <label for="start-date">Backtesting Period:</label>
+        <select id="start-date">
+            <option selected>Max</option>
+            <option value="20">20y</option>
+            <option value="10">10y</option>
+            <option value="5">5y</option>
+            <option value="3">3y</option>
+            <option value="1">1y</option>
+        </select>
+
+        <label for="starting-cash">Starting Cash:</label>
+        <input id="starting-cash" type="number" value="0" min="0" max="100000"></input>
+
+        <label for="monthly-input">Invest per month:</label>
+        <input id="monthly-input" type="number" value="200" min="0" max="100000"></input>
+
+        <button onclick="backtest()">Run Backtest</button>
+
+        <br />
+
+        <div id="table"></div>
+    </div>
+
+    <div id="graph"></div>
+
+    <script>
+        function generateTable(jsonObj) {
+            // Create a table element
+            const table = document.createElement('table');
+            table.setAttribute('border', '1');
+
+            // Create a header row
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+
+            // Create column headers (keys)
+            Object.keys(jsonObj).forEach(key => {
+                const th = document.createElement('th');
+                th.textContent = key;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            // Create a body row (values)
+            const tbody = document.createElement('tbody');
+            const valueRow = document.createElement('tr');
+            Object.values(jsonObj).forEach(value => {
+                const td = document.createElement('td');
+                td.textContent = value;
+                valueRow.appendChild(td);
+            });
+            tbody.appendChild(valueRow);
+            table.appendChild(tbody);
+
+            // Append the table to the div with id="table" and clear it
+            document.getElementById('table').innerHTML = "";
+            document.getElementById('table').appendChild(table);
+        }
+
+        async function backtest() {
+            // Get selected ticker
+            const ticker = document.getElementById("ticker").value;
+
+            // Get starting date
+            const period = document.getElementById("start-date").value;
+            let startDate = new Date(2000, 9, 22);
+            let mostRecent = new Date(2024, 9, 22);
+            if (period !== "Max") {
+                startDate.setUTCFullYear(mostRecent.getUTCFullYear() - period);
+            }
+
+            let startingCash = Number(document.getElementById("starting-cash").value);
+            const monthlyInput = Number(document.getElementById("monthly-input").value);
+
+            let currentMonth = null;
+            let totalExpense = 0;
+            let transactions = [];
+            let portfolioState = [];
+            let equity = 0;
+            let portfolioPeak = 0;
+            let cash = 0;
+            let metrics = {};
+
+            // Load the CSV file
+            // d3.autoType automatically parses dates and numeric columns
+            const csv = await d3.csv(`data/${ticker}.csv`, d3.autoType);
+
+            // Filter rows after the starting date
+            const filteredData = csv.filter(row => new Date(row.Date) > startDate);
+
+            // Iterate over the filtered rows
+            filteredData.forEach(row => {
+                // console.log(`Date: ${row.Date}, Open: ${row.Open}, Close: ${row.Close}`);
+
+                // Skip empty data
+                if (row.Open === 0) {
+                    return;
+                }
+
+                let date = new Date(row.Date);
+
+                if (date.getMonth() !== currentMonth) {
+                    currentMonth = date.getMonth();
+
+                    cash += monthlyInput;
+
+                    totalExpense += monthlyInput;
+
+                    const to_buy = Math.floor((cash - 1) / row.Open);
+
+                    if (to_buy > 0) {
+                        cash = cash - 1 - to_buy * row.Open;
+
+                        equity += to_buy;
+
+                        transactions.push({
+                            date: date,
+                            bought: to_buy,
+                            open: row.Open,
+                            cash: cash,
+                        });
+
+                        totalExpense += 1;
+                    }
+                }
+
+                portfolioState.push({
+                    date: date,
+                    equity: equity,
+                    totalExpense: totalExpense,
+                    worth: equity * row.Open,
+                    cash: cash,
+                })
+
+                const equityHigh = equity * row.High;
+                if (equityHigh > portfolioPeak) {
+                    portfolioPeak = equityHigh;
+                }
+
+                metrics["endDate"] = date;
+                metrics["current"] = row.Open;
+            });
+
+            metrics["startDate"] = new Date(filteredData[0].Date);
+            metrics["duration"] = metrics["endDate"] - metrics["startDate"];
+            metrics["equityPeak"] = portfolioPeak;
+            metrics["totalExpense"] = totalExpense;
+            metrics["BEP"] = totalExpense / equity;
+            metrics["unrealizedReturn"] = ((metrics["current"] * equity - totalExpense) / totalExpense) * 100;
+
+            generateTable({
+                "Ticker": ticker,
+                "Starting Date": metrics["startDate"],
+                "End Date": metrics["endDate"],
+                "Unrealized Return": metrics["unrealizedReturn"].toFixed(2) + "%",
+                "Total Invested": totalExpense.toFixed(2),
+                "Number of Transactions": transactions.length,
+                "Equity": equity,
+                "BEP": metrics["BEP"].toFixed(2),
+                "Final Portfolio": (equity * metrics["current"]).toFixed(2),
+                "Portfolio Peak": portfolioPeak.toFixed(2),
+            });
+
+            return;
+
+
+            // Clear previous graph
+            d3.select("#graph").html("");
+
+            // Get selected values
+            const tick = "AAPL";
+            const startingDate = new Date(document.getElementById("start-date").value);
+
+            const stockData = {
+                "AAPL": [{ date: "2023-01-01", value: 150 }, { date: "2023-02-01", value: 160 }, { date: "2023-03-01", value: 155 }],
+                "GOOGL": [{ date: "2023-01-01", value: 2800 }, { date: "2023-02-01", value: 2900 }, { date: "2023-03-01", value: 3000 }],
+                "AMZN": [{ date: "2023-01-01", value: 3300 }, { date: "2023-02-01", value: 3400 }, { date: "2023-03-01", value: 3350 }]
+            };
+
+            // Filter data based on selected ticker and starting date
+            const data = stockData[ticker].filter(d => new Date(d.date) >= startDate);
+
+            // Set graph dimensions
+            const margin = { top: 20, right: 30, bottom: 30, left: 40 },
+                width = 600 - margin.left - margin.right,
+                height = 300 - margin.top - margin.bottom;
+
+            // Create the SVG container for the graph
+            const svg = d3.select("#graph")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Set the scales
+            const x = d3.scaleTime()
+                .domain(d3.extent(data, d => new Date(d.date)))
+                .range([0, width]);
+
+            const y = d3.scaleLinear()
+                .domain([d3.min(data, d => d.value), d3.max(data, d => d.value)])
+                .range([height, 0]);
+
+            // Add the X axis
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x).ticks(5));
+
+            // Add the Y axis
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add the line
+            const line = d3.line()
+                .x(d => x(new Date(d.date)))
+                .y(d => y(d.value));
+
+            svg.append("path")
+                .datum(data)
+                .attr("fill", "none")
+                .attr("stroke", "steelblue")
+                .attr("stroke-width", 1.5)
+                .attr("d", line);
+
+            // Add points for each data point
+            svg.selectAll("circle")
+                .data(data)
+                .enter()
+                .append("circle")
+                .attr("cx", d => x(new Date(d.date)))
+                .attr("cy", d => y(d.value))
+                .attr("r", 4)
+                .attr("fill", "red");
+        }
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            const response = await fetch("data/tickers.json");
+            if (!response.ok) {
+                throw new Error(`Response status: ${response.status}`);
+            }
+
+            const json = await response.json();
+
+            const select = document.querySelector("#ticker");
+
+            Object.entries(json).sort().map(([isin, ticker]) => {
+                const opt = document.createElement("option");
+                opt.value = `${isin}-${ticker}`;
+                opt.text = ticker;
+                select.appendChild(opt);
+            });
+        });
+
+    </script>
+
+</body>
+
+</html>

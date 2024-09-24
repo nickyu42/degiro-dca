@@ -1,4 +1,5 @@
 ﻿product,isin,exchange,benchmark,region,esgRating,totalExpanseRation,translateView,linkKid
+ETF NAAM,Isin,BEURS,BENCHMARK,REGIO,ESG RATING,TOTAL EXPENSE RATIO,view,LINK KID
 ISHARES EURO STX50,IE0008471009,Euronext Amsterdam & Tradegate,Euro STOXX 50,Europa,AA,0.1,Bekijk,https://doc.morningstar.com/LatestDoc.aspx?clientid=fintdocmdl&key=5183cecc43fd005f&language=451&investmentid=F0GBR04SHP&documenttype=299&market=1452&investmenttype=1
 ISHARES CHINA 25,IE00B02KXK85,Euronext Amsterdam & Tradegate,FTSE China 25,China,A,0.74,Bekijk,https://doc.morningstar.com/LatestDoc.aspx?clientid=fintdocmdl&key=5183cecc43fd005f&language=451&investmentid=F0GBR0653I&documenttype=299&market=1452&investmenttype=1
 ISHARES FTSE 100,IE0005042456,Euronext Amsterdam & Tradegate,FTSE 100-index,United Kingdom,AA,0.07,Bekijk,https://doc.morningstar.com/LatestDoc.aspx?clientid=fintdocmdl&key=5183cecc43fd005f&language=451&investmentid=F0GBR04IXF&documenttype=299&market=1452&investmenttype=1
